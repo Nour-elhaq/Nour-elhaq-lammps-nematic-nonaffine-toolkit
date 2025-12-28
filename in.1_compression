@@ -1,0 +1,210 @@
+# GB Ellipsoid Compression Workflow (Novel Metrics Edition)
+#
+# This script generates a polydisperse mixture of Gay–Berne (GB) ellipsoids,
+# equilibrates the system, then compresses it through a pressure schedule,
+# writing restart files at selected pressures.
+#
+# Author: El Macouti Nour El Haq
+# ORCID: 0009-0009-8518-418X  (https://orcid.org/0009-0009-8518-418X)
+# Affiliation: Energy Science Engineering Lab,
+#              National School of Applied Sciences,
+#              Chouaib Doukkali University of El Jadida,
+#              El Jadida, Morocco
+#
+# Novel add-ons included in this version:
+# - Nematic alignment order parameter S(t) and spatial profile S(z)
+# - (Other add-ons may be present depending on the workflow stage)
+#
+# -----------------------------------
+
+clear
+units		lj
+atom_style	ellipsoid
+atom_modify	first big
+dimension	3
+
+# create three types of ellipsoidal particles
+# with aspect ratio 1/5, 1/6, and 1/7
+# initial placed on simple cubic lattice
+lattice		sc 0.2
+region		box block 0 16 0 16 0 16
+create_box	3 box
+create_atoms	1 region box
+
+# setting the population, mass, shape, orientation
+set	        group all type/ratio 2 0.333 95392
+group           tp1 type 1
+set             group tp1 type/ratio 3 0.5 95392
+set		type 1 mass 1.0
+set             type 2 mass 1.44
+set             type 3 mass 1.96
+set		type 1 shape 1.0 1.0 0.2
+set             type 2 shape 1.2 1.2 0.2
+set             type 3 shape 1.4 1.4 0.2
+group		big type 1 2 3
+set		group big quat/random 29890
+
+# assign random initial velocity 
+velocity	big create 10 87280 mom yes loop all
+
+# define pair style
+pair_style      gayberne/omp 1.0 2.0 1.0 2.0
+pair_coeff      1 1 5.0 0.2 0.2 0.2 1.0 0.2 0.2 1.0 1.6
+pair_coeff      2 2 5.0 0.2 0.2 0.2 1.0 0.2 0.2 1.0 1.6
+pair_coeff      3 3 5.0 0.2 0.2 0.2 1.0 0.2 0.2 1.0 1.6
+
+pair_modify     mix arithmetic
+
+neighbor	0.2 bin
+neigh_modify	delay 0 every 1 check yes one 4000
+
+# compute temperature and pressure
+compute         temp_trans all temp
+
+variable        dof equal count(big)
+compute         temp_rottrans all temp/asphere dof all
+
+compute         pres_trans all pressure temp_trans
+compute         pres_ke all pressure temp_trans ke
+compute         pres_virial all pressure temp_trans virial
+
+compute         p_e all pe
+compute         ke_t all ke
+compute         ke_r all erotate/asphere
+
+# setting initial temperature and pressure control
+fix             4 all nve/asphere 
+fix             1 big langevin 1.75 1.75 0.025 498094 angmom 1.0
+fix_modify      1 temp temp_rottrans
+
+
+# output setting
+variable        volume equal vol
+
+compute         orient all property/atom quati quatj quatk quatw
+
+# ---------------- NOVEL ADD-ON: nematic order parameter ----------------
+# Convert quaternion to body-axis (here: body z-axis) in lab frame and compute P2=(3 uz^2-1)/2
+variable        ux atom 2.0*(c_orient[1]*c_orient[3] + c_orient[4]*c_orient[2])
+variable        uy atom 2.0*(c_orient[2]*c_orient[3] - c_orient[4]*c_orient[1])
+variable        uz atom (c_orient[4]*c_orient[4] - c_orient[1]*c_orient[1] - c_orient[2]*c_orient[2] + c_orient[3]*c_orient[3])
+variable        P2 atom 0.5*(3.0*v_uz*v_uz - 1.0)
+compute         S all reduce ave v_P2
+# Time series of <P2> (nematic alignment); write every 10000 steps
+fix             30 all ave/time 1 10000 10000 c_S file compression_novel.S_time.dat
+# Spatial profile S(z) using same chunk binning as velocity profile scripts
+compute         zlayer all chunk/atom bin/1d z lower 0.05 units reduced
+fix             31 all ave/chunk 1 200000 200000 zlayer v_P2 norm sample file compression_novel.S_profile.dat
+# ----------------------------------------------------------------------
+compute         diameter all property/atom shapex shapey shapez 
+
+# formatting time-averaged value output 
+fix             3 all ave/time 1 100 100 v_volume c_temp_rottrans c_pres_trans[1] c_pres_trans[2] c_pres_trans[3] c_p_e c_ke_t c_ke_r file compression_novel.avg
+
+# formatting dump file output
+dump		1 all custom 10000 compression_novel.dump id type x y z &
+                   c_orient[1] c_orient[2] c_orient[3] c_orient[4] &
+                   c_diameter[1] c_diameter[2] c_diameter[3]
+
+# formatting log file output
+thermo_style	custom step c_temp_rottrans press pxx pyy pzz etotal pe ke enthalpy c_S
+thermo		10000
+
+# RUN SIMULATION
+
+# define simulation time step
+# initial run in constant volume configuration
+timestep        0.00025
+
+run		4000000
+
+# store restart file
+write_restart   mix_nvt_novel.restart
+
+# run simulation with pressure increase from 0 to 100
+unfix           4
+fix             4 all nph/asphere iso 0.0 100.0 0.25 
+timestep        0.00025
+run		800000
+
+# equilibirum at pressure 100 and store restart file
+unfix           4
+fix             4 all nph/asphere aniso 100.0 100.0 0.25 
+timestep        0.0005
+run		4000000
+
+write_restart   mix_press100_novel.restart
+
+# run simulation with pressure increase from 100 to 300
+unfix           4
+fix             4 all nph/asphere aniso 100.0 300.0 0.25 
+timestep        0.00025
+run		200000
+
+# equilibrium at pressure 300 and store restart file
+unfix           4
+fix             4 all nph/asphere aniso 300.0 300.0 0.25 
+timestep        0.00025
+run		8000000
+
+write_restart   mix_press300_novel.restart
+
+# run simulation with pressure increase from 300 to 1000
+unfix           4
+fix             4 all nph/asphere aniso 300.0 1000.0 0.25 
+timestep        0.00025
+run		200000
+
+# equilibrium at pressure 1000 and store restart file
+unfix           4
+fix             4 all nph/asphere aniso 1000.0 1000.0 0.25 
+timestep        0.00025
+run		8000000
+
+write_restart   mix_press1000_novel.restart
+
+# run simulation with pressure increase from 1000 to 3000
+unfix           4
+fix             4 all nph/asphere aniso 1000.0 3000.0 0.25 
+timestep        0.00025
+run		200000
+
+# equilibrium at pressure 3000 and store restart file
+unfix           4
+fix             4 all nph/asphere aniso 3000.0 3000.0 0.25 
+timestep        0.00025
+run		8000000
+
+write_restart   mix_press3000_novel.restart
+
+# run simulation with pressure increase from 3000 to 6000
+unfix           4
+fix             4 all nph/asphere aniso 3000.0 6000.0 0.25 
+timestep        0.00025
+run		200000
+
+# equilibrium at pressure 6000 and store restart file
+unfix           4
+fix             4 all nph/asphere aniso 6000.0 6000.0 0.25 
+timestep        0.00025
+run		8000000
+
+write_restart   mix_press6000_novel.restart
+
+# run simulation with pressure increase from 6000 to 10000
+unfix           4
+fix             4 all nph/asphere aniso 6000.0 10000.0 0.25 
+timestep        0.00025
+run		200000
+
+# equilibrium at pressure 10000 and store restart file
+unfix           4
+fix             4 all nph/asphere aniso 10000.0 10000.0 0.25 
+timestep        0.00025
+run		8000000
+
+write_restart   mix_press10000_novel.restart
+undump          1
+unfix           1
+unfix           3
+

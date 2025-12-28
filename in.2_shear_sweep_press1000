@@ -1,0 +1,163 @@
+# GB Ellipsoid Compression Workflow (Novel Metrics Edition)
+#
+# This script generates a polydisperse mixture of Gay–Berne (GB) ellipsoids,
+# equilibrates the system, then compresses it through a pressure schedule,
+# writing restart files at selected pressures.
+#
+# Author: El Macouti Nour El Haq
+# ORCID: 0009-0009-8518-418X  (https://orcid.org/0009-0009-8518-418X)
+# Affiliation: Energy Science Engineering Lab,
+#              National School of Applied Sciences,
+#              Chouaib Doukkali University of El Jadida,
+#              El Jadida, Morocco
+#
+# Novel add-ons included in this version:
+# - Nematic alignment order parameter S(t) and spatial profile S(z)
+# - (Other add-ons may be present depending on the workflow stage)
+#
+# -----------------------------------
+
+
+# Shear-rate sweep (erate) values and tags used in output filenames
+variable        gdot index 0.001 0.003 0.01 0.03 0.04
+variable        tag  index 001  003  010  030  040
+label           loop_gdot
+clear
+
+# read a restart file generated from compression simulation
+# change the file name ("mix_press1000.restart")
+read_restart    mix_press1000_novel.restart
+
+# change the simulation box to a triclinic box to perform shear
+change_box all triclinic xy final 0.0 xz final 0.0 yz final 0.0
+
+variable        kk equal 1/6
+
+
+neighbor	0.2 bin
+neigh_modify	delay 0 every 1 check yes one 4000
+
+# compute temperature and pressure
+compute         temp_trans all temp
+variable        dof equal count(big)
+compute         temp_rottrans all temp/asphere dof all
+
+compute         temp_rot all temp/asphere dof rotate
+
+compute         pres_trans all pressure temp_trans
+
+compute         p_e all pe
+compute         ke_t all ke
+compute         ke_r all erotate/asphere
+
+# setting temperature and pressure control before shear 
+fix             4 all nve/asphere
+fix             1 big langevin 1.75 1.75 0.025 498094 angmom 1.0
+fix_modify      1 temp temp_rottrans
+
+# output setting
+variable        volume equal vol
+variable        lenzz equal lz
+variable        lenxz equal xz
+variable        realg equal xz/lz
+
+variable        disp equal "v_gdot*step*dt"
+variable        rate equal "v_gdot*lz"
+
+compute         orient all property/atom quati quatj quatk quatw
+
+# ---------------- NOVEL ADD-ON: nematic order parameter ----------------
+# Convert quaternion to body-axis (here: body z-axis) in lab frame and compute P2=(3 uz^2-1)/2
+variable        ux atom 2.0*(c_orient[1]*c_orient[3] + c_orient[4]*c_orient[2])
+variable        uy atom 2.0*(c_orient[2]*c_orient[3] - c_orient[4]*c_orient[1])
+variable        uz atom (c_orient[4]*c_orient[4] - c_orient[1]*c_orient[1] - c_orient[2]*c_orient[2] + c_orient[3]*c_orient[3])
+variable        P2 atom 0.5*(3.0*v_uz*v_uz - 1.0)
+compute         S all reduce ave v_P2
+# Time series of <P2> (nematic alignment); write every 10000 steps
+fix             30 all ave/time 1 10000 10000 c_S file mix4000_shear${tag}.S_time.dat
+# ----------------------------------------------------------------------
+compute         diameter all property/atom shapex shapey shapez 
+
+# formatting log file output
+thermo_style	custom step c_temp_rottrans c_temp_trans c_temp_rot pe pzz pxz lz xz v_disp c_ke_t c_ke_r c_S
+thermo		1000
+
+# RUN SIMULATION
+# short run in nve after change into triclinic box
+timestep        0.00025
+run		10000
+
+unfix           1
+unfix           4
+
+reset_timestep  0
+
+# ---------------- NOVEL ADD-ON: non-affine displacement (plasticity proxy) ----------------
+# Store reference positions at t=0
+fix             ref all store/state 0 x y z
+# shear strain gamma = xz/lz
+variable        gamma equal xz/lz
+# Non-affine displacement relative to affine shear: x_aff = x0 + gamma*z0
+variable        dx_na atom (x - f_ref[1]) - v_gamma*(f_ref[3])
+variable        dy_na atom (y - f_ref[2])
+variable        dz_na atom (z - f_ref[3])
+variable        d2_na atom v_dx_na*v_dx_na + v_dy_na*v_dy_na + v_dz_na*v_dz_na
+compute         D2NA all reduce ave v_d2_na
+# Output gamma and <D2_na> every 10000 steps
+fix             41 all ave/time 1 10000 10000 v_gamma c_D2NA file mix4000_shear${tag}.nonaffine.dat
+# -----------------------------------------------------------------------------------------
+
+
+# formatting time-averaged value output 
+fix             3 all ave/time 1 100 100 v_volume c_pres_trans[1] c_pres_trans[2] c_pres_trans[3] c_pres_trans[5] c_p_e c_ke_t c_ke_r v_lenzz v_lenxz v_disp file mix4000_shear${tag}.avg
+
+# formatting velocity-profile output
+compute         zlayer all chunk/atom bin/1d z lower 0.05 units reduced
+# Spatial profile S(z) (use the existing zlayer chunks defined below for velocity profiling)
+fix             31 all ave/chunk 1 200000 200000 zlayer v_P2 norm sample file mix4000_shear${tag}.S_profile.dat
+fix             5 all ave/chunk 1 200000 200000 zlayer vx norm sample file mix4000_shear${tag}.profile
+
+# formatting dump file output
+dump		1 all custom 10000 mix4000_shear${tag}.dump id type x y z &
+                   c_orient[1] c_orient[2] c_orient[3] c_orient[4] &
+                   c_diameter[1] c_diameter[2] c_diameter[3]
+
+# setting pressure, temperature and shear control during shear
+# pressure control only in Z direction
+# temperature control with a bias of background linear velocity profile of the box with temp/deform
+# change the pressure control ("z 1000.0 1000.0")    
+# shear with constant strain rate with fix deform in XZ direction
+# change the strain rate ("erate 0.01")          
+fix             4 all nph/asphere z 1000.0 1000.0 0.25
+fix_modify      4 press pres_trans
+
+fix 2 all deform 1 xz erate ${gdot} remap v
+
+compute		tdef all temp/deform
+
+fix             1 big langevin 1.75 1.75 0.025 498094 angmom 1.0
+fix_modify      1 temp tdef
+
+# formatting log file output
+thermo_style	custom step c_temp_rottrans c_tdef pzz pxz lz xz v_disp c_S
+thermo		10000
+
+# define simulation time step
+timestep        0.00025
+
+# run the simulation for 10 strains
+# strain: strain rate (0.01) * timestep (0.00025) * step (4000000) = 10 
+run             4000000
+
+# store restart file
+write_restart   mix4000_shear${tag}.restart
+
+undump          1
+unfix           1
+unfix           3
+
+
+# --- loop bookkeeping ---
+next            gdot
+next            tag
+jump            SELF loop_gdot
