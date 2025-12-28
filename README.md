@@ -16,13 +16,13 @@ In addition to the original mechanics (NVT → NPH compression → NPH+deform sh
 
 ## Files
 
-- `in.1_compression_novel`  
+- `in.1_compression`  
   Builds the polydisperse GB system, equilibrates, then compresses through a pressure schedule and writes restart files.
 
-- `in.2_shear_sweep_press1000_novel`  
-  Reads `mix_press1000_novel.restart`, converts the box to triclinic, then shears at several strain rates \(\dot\gamma\) while controlling normal stress (\(p_{zz}\)). Outputs stress, strain, alignment, non-affine motion, and velocity profiles.
+- `in.2_shear_sweep_press1000`  
+  Reads `mix_press1000.restart`, converts the box to triclinic, then shears at several strain rates \(\dot\gamma\) while controlling normal stress (\(p_{zz}\)). Outputs stress, strain, alignment, non-affine motion, and velocity profiles.
 
-- `in.3_rest_press1000_novel`  
+- `in.3_rest_press1000`  
   Reads a chosen sheared restart (default: the highest-rate tag) and relaxes at constant volume (NVE + thermostat). Optionally relax at constant normal stress with NPH.
 
 ---
@@ -91,7 +91,7 @@ These quantify how compression induces orientational ordering.
 
 ---
 
-## Stage 2 — Shear-rate sweep (`in.2_shear_sweep_press1000_novel`)
+## Stage 2 — Shear-rate sweep (`in.2_shear_sweep_press1000`)
 
 ### Goal
 Starting from a compressed restart at `press = 1000`, impose steady simple shear at different strain rates \(\dot\gamma\). Measure stress response, velocity profile, ordering, and non-affine motion.
@@ -122,7 +122,7 @@ Instead of a single \(\dot\gamma\), the script runs a list:
 
 Each run writes separate outputs tagged by `${tag}` (001, 003, 010, 030, 040).
 
-### Novel output A: Nematic alignment \(S(t)\) and \(S(z)\)
+### Output A: Nematic alignment \(S(t)\) and \(S(z)\)
 We compute a unit vector (body axis) from the quaternion and form:
 
 - \(P_2 = \frac{1}{2}(3u_z^2 - 1)\)
