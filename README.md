@@ -1,4 +1,4 @@
-# Novel LAMMPS Workflow: Compression → Shear-Rate Sweep → Rest (Gay–Berne Ellipsoids)
+# LAMMPS Workflow: Compression → Shear-Rate Sweep → Rest (Gay–Berne Ellipsoids)
 
 This repository contains a 3-stage LAMMPS workflow for a **polydisperse mixture of Gay–Berne (GB) ellipsoids** (aspherical particles) meant to mimic qualitative aspects of layered/anisotropic materials (e.g., smectite-like ordering). The workflow:
 
@@ -81,7 +81,7 @@ Aspherical particles have both translational and rotational kinetic energy. The 
 - `compute temp/asphere` : combined rotational+translational temperature
 - Pressure uses `pressure temp_trans` (common choice: define pressure from translational motion to avoid mixing thermostatting of rotations into the pressure compute).
 
-### Novel output: Alignment order
+### output: Alignment order
 This stage now outputs:
 
 - **Time series**: `compression_novel.S_time.dat`
