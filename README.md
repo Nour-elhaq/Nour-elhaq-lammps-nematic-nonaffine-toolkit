@@ -81,7 +81,7 @@ Aspherical particles have both translational and rotational kinetic energy. The 
 - `compute temp/asphere` : combined rotational+translational temperature
 - Pressure uses `pressure temp_trans` (common choice: define pressure from translational motion to avoid mixing thermostatting of rotations into the pressure compute).
 
-### output: Alignment order
+### Output: Alignment order
 This stage now outputs:
 
 - **Time series**: `compression_novel.S_time.dat`
