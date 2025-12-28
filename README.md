@@ -139,7 +139,7 @@ Interpretation:
 - \(S > 0\) : alignment with z-axis (nematic-like)
 - \(S < 0\) : alignment perpendicular to z-axis
 
-### Novel output B: Non-affine displacement \(⟨D^2_{NA}⟩\)
+### Output B: Non-affine displacement \(⟨D^2_{NA}⟩\)
 Under affine shear, positions would follow:
 
 - \(x_{\mathrm{aff}}(t) = x_0 + \gamma(t) z_0\)
@@ -166,7 +166,7 @@ Interpretation:
 
 ---
 
-## Stage 3 — Rest / Relaxation (`in.3_rest_press1000_novel`)
+## Stage 3 — Rest / Relaxation (`in.3_rest_press1000`)
 
 ### Goal
 After shear, stop deforming and let the system relax. This probes structural recovery, stress relaxation, and possible re-ordering.
