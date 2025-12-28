@@ -177,6 +177,11 @@ After shear, stop deforming and let the system relax. This probes structural rec
 ### Optional rest at constant normal stress
 Uncomment the NPH fix:
 
-```lammps
+``lammps
 #fix 4 all nph/asphere z 1000.0 1000.0 0.25
-#fix_modify 4 press pres_trans
+#fix_modify 4 press pres_trans``
+
+---
+[![DOI](https://zenodo.org/badge/1123243750.svg)](https://doi.org/10.5281/zenodo.18061762)
+
+
