@@ -60,7 +60,7 @@ All scripts use `units lj` (reduced LJ units). That means:
 
 ---
 
-## Stage 1 — Compression (`in.1_compression_novel`)
+## Stage 1 — Compression (`in.1_compression`)
 
 ### Goal
 Create a well-defined packed structure by equilibrating at constant volume, then compressing through a sequence of pressures, writing a restart at each pressure.
