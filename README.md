@@ -84,7 +84,7 @@ Aspherical particles have both translational and rotational kinetic energy. The 
 ### Output: Alignment order
 This stage now outputs:
 
-- **Time series**: `compression_novel.S_time.dat`
+- **Time series**: `compression.S_time.dat`
 - **Profile**: `compression_novel.S_profile.dat`
 
 These quantify how compression induces orientational ordering.
