@@ -182,6 +182,7 @@ Uncomment the NPH fix:
 #fix_modify 4 press pres_trans``
 
 ---
-[![DOI](https://zenodo.org/badge/1123243750.svg)](https://doi.org/10.5281/zenodo.18061762)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18075981.svg)](https://doi.org/10.5281/zenodo.18075981)
+
 
 
